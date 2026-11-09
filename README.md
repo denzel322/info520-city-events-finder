@@ -1,60 +1,99 @@
 # City Events Finder
 
-A small INFO 520 application that combines upcoming events from Ticketmaster and PredictHQ and enriches them with Open-Meteo weather. Author: Denzel Speed. Work is being completed individually; do not claim partner commits or a role swap that did not occur.
+INFO 520 extra-credit project by Denzel Speed, with ChatGPT assistance. Development and deployment are currently individual work. No partner contributions or role swaps are claimed.
 
-## Current status
+- Application: http://8.233.231.191
+- Health endpoint: http://8.233.231.191/health
+- Repository: https://github.com/denzel322/info520-city-events-finder
+- Deadline and planned teardown: November 20, 2026
 
-Seven synthetic-data tests pass, including a daylight-saving boundary test. Live application search from Google Cloud Shell connected to Ticketmaster, PredictHQ, and Open-Meteo and returned 65 sorted Richmond-area events for November 9–15, 2026. All 65 were inside the local date window and weather enriched. Docker build and container HTTP checks passed. Cloud deployment and load balancer remain pending. GitHub repository exists at https://github.com/denzel322/info520-city-events-finder but code push is pending authentication.
+## Verified on November 9, 2026
+
+Seven synthetic-data tests passed. Both event APIs and Open-Meteo worked in the application. Docker build, container execution, and the deployed load-balancer route passed HTTP checks. The public Richmond search returned 65 sorted events, all inside the requested dates and all weather enriched. No duplicate keys remained. The frontend HTML and assets returned 200; invalid city input returned 400; `/health` returned 200 with `OK`. The direct external Cloud Run URL returned 404, consistent with the ingress restriction.
+
+Browser automation was blocked from opening the public IP, so visual browser verification remains a manual check before recording. A load-induced scale-out test was not performed. Cleanup is prepared, not completed or automatically scheduled for deletion. See [VERIFICATION.md](VERIFICATION.md) and [PROGRESS.md](PROGRESS.md) for actual evidence and troubleshooting.
 
 ## Run locally
 
-Python 3.12 or later is sufficient; no Python dependencies are required.
+Python 3.12 or later is sufficient; the application has no third-party Python dependencies.
 
-1. Register for a Ticketmaster developer key and a PredictHQ trial/token. Confirm the latter covers your demonstration city and dates. Do not activate a short trial too early; verify access lasts through grading. Review each provider's terms for the intended classroom demo.
-2. Set `TICKETMASTER_API_KEY` and `PREDICTHQ_API_TOKEN` in your shell environment. The app does not automatically load `.env` files. Keep credentials out of source files, screenshots, and commits.
-3. From this directory run `python app.py`.
-4. Open http://localhost:8080 and search a city such as Richmond, Virginia. The app displays the resolved city so ambiguous locations are visible.
-5. Open http://localhost:8080/health. It returns plain text `OK`.
+1. Obtain Ticketmaster Discovery API and PredictHQ Events API credentials. Confirm free access, geography, dates, and provider terms.
+2. Set `TICKETMASTER_API_KEY` and `PREDICTHQ_API_TOKEN` in the shell environment. The app does not load `.env` files automatically. Never commit credentials.
+3. Run `python3 app.py` from the repository root.
+4. Open http://localhost:8080 and search a city such as `Richmond`.
+5. Open http://localhost:8080/health to see `OK`.
 
-Open-Meteo weather and geocoding require no key for this noncommercial project. Forecast values are in Fahrenheit and refer to the searched city. API responses and error messages indicate which sources are unavailable; no fabricated results are substituted.
+Run the tests from the repository root:
 
-## Behavior and limits
+```bash
+python3 -m unittest discover -s tests -v
+```
 
-Searches cover the next seven calendar days, including today, in roughly a 15-mile radius. Geocoding uses the first match and displays the resolved administrative area/country. Event search is intentionally capped at 200 Ticketmaster and 50 PredictHQ records; results are not exhaustive and this limit is disclosed in the UI. Date-only event records may include events earlier today. Provider query timestamps use the searched city’s local calendar boundaries converted to UTC. PredictHQ results are additionally filtered by local date. Provider requests have 12-second timeouts and run concurrently. Each search fetches fresh data; no optional cache is included.
+The tests use synthetic fixtures and cover normalization, source/link preservation, venue/date separation, missing venues, sorting, cancelled Ticketmaster events, PredictHQ local time conversion and request limit, and a daylight-saving boundary. Live integration results are recorded separately.
 
-An event is considered a duplicate when its title and venue (lowercase, punctuation removed, accents normalized) and local date all match. Keep both source names and available links when merged. If a venue is missing, keep records separate to avoid false merges. Different performances at the same venue on the same date may be merged by this simple rule; compare real results before finalizing the report. Results sort by local date and time. Unknown times sort last within a date. PredictHQ timestamps are converted to the event's timezone before comparison.
+## Sources and behavior
 
-## Verify
+Ticketmaster and PredictHQ return actual events. Open-Meteo supplies geocoding and weather, without a key for this noncommercial project. Queries cover the next seven calendar days in roughly a 15-mile radius. The first geocoding match is used; the resolved city, administrative area, and country are shown to make ambiguity visible.
 
-Run `python -m unittest discover -s tests -v` from this directory. Tests use synthetic fixtures; they do not establish that live credentials work. Additional acceptance checks: real results from both feeds, weather enrichment, successful city resolution, one deliberate duplicate comparison, and graceful handling of unavailable sources.
+Results are limited to 200 Ticketmaster and 50 PredictHQ records per search. The API response and UI disclose this bounded coverage. Requests run concurrently with 12-second provider timeouts. Date-only records can include events earlier today. No event database or caching is used. Forecast values are Fahrenheit and refer to the searched city. Provider failures are reported as partial results; no fake data is substituted.
+
+Duplicate rule: normalize title and venue by lowercasing, removing punctuation, and folding accents, then compare title + local date + venue. Matching records retain source labels and links. Missing venues stay separate by source/ID. Sort by local date, time, then title; unknown times go last. Query bounds use city-local midnights converted to UTC. PredictHQ dates are converted to the event's timezone and filtered to the requested dates. This simple rule can miss differently titled duplicates and merge multiple same-day performances. A live 66-record input produced 65 final records. No exact cross-provider match appeared in that sample; the synthetic test covers combining both providers' labels/links.
+
+PredictHQ's trial showed 14 days remaining on November 9, global access, 200 requests/minute, 50 records/page, 90-day historic/future visibility, attribution required, commercial use disallowed, and data storage disallowed. The UI displays **Events by PredictHQ**. Do not add stored real event fixtures or response caching without checking entitlement.
 
 ## Container
 
-Build with `docker build -t city-events-finder .` and run with `docker run --rm -p 8080:8080 --env TICKETMASTER_API_KEY --env PREDICTHQ_API_TOKEN city-events-finder`. The image copies only the four runtime files and runs as a nonroot user. Docker build and container execution were verified in Cloud Shell on November 9, 2026.
+```bash
+docker build -t city-events-finder .
+docker run --rm -p 8080:8080 --env TICKETMASTER_API_KEY --env PREDICTHQ_API_TOKEN city-events-finder
+```
 
-## Required GCP deployment still to perform
+The image copies only the four runtime files and runs as UID 10001. API credentials are supplied at runtime; they are not baked into the image. Container build and HTTP tests passed in Google Cloud Shell.
 
-Before creating billable resources, confirm project ID, billing/trial credits, spending allowance, and grading date. Set a budget alert first; an alert is not a hard spending cap.
+## Deployed Google Cloud configuration
 
-Build and push the Docker image to Artifact Registry. Deploy it to Cloud Run with keys referenced from Secret Manager, using a dedicated service account granted access only to the required secrets. Proposed low-traffic starting settings: minimum instances 0, maximum instances 2, concurrency 8, container port 8080. These are proposed values, not deployed settings. Configure startup/liveness probes against `/health` as appropriate.
+Project: `formidable-pact-514217-f2`. Region: `us-central1`. Image:
 
-Create the required external HTTP(S) load balancer with a serverless NEG targeting Cloud Run. Validate traffic end to end through the load balancer. Serverless NEGs do not use VM-style load balancer health checks; explain Cloud Run probes and manual `/health` validation instead. Restrict ingress to internal and cloud load balancing if using that optional hardening; verify the load balancer can reach the service before restricting access.
+```text
+us-central1-docker.pkg.dev/formidable-pact-514217-f2/city-events/city-events-finder@sha256:a56384549488f53aeca614167a7bc268cfed8bd5595a7769d8f4ddf7112608ac
+```
 
-Artifact Registry and secret preparation began on November 9, 2026; consult PROGRESS.md for verified resource status. No deployed Cloud Run or load balancer is verified yet. The one-page architecture diagram and 2–3 page final report must reflect actual deployed settings and observed troubleshooting. Record a Zoom demo under five minutes. Explain solo participation accurately and check the instructor's expectations for solo extra credit. Remove billable resources after grading, including the load balancer, forwarding rules, IP address, Cloud Run service, images, and secrets when no longer needed.
+Cloud Run service `city-events-finder` uses min 0, service max 2, concurrency 8, 1 vCPU, 256 MiB, a 60-second timeout, and container port 8080. Zero minimum allows idle scale-down; max 2 and modest concurrency suit the small classroom workload. Startup probe: `/health`, period 10s, timeout 1s, failure threshold 3. Liveness probe: `/health`, period 30s, timeout 1s, failure threshold 3. Both use HTTP on 8080.
 
-## References
+Runtime identity `city-events-runtime@formidable-pact-514217-f2.iam.gserviceaccount.com` has Secret Accessor separately on `ticketmaster-api-key` and `predicthq-api-token`. Cloud Run binds version 1 of each. Non-sensitive configuration may use ordinary environment variables. No service-account key was created.
 
-- Assignment: info520 - GCP Group Project (1).docx supplied by the user.
+Ingress is `internal-and-cloud-load-balancing`, and public invocation is allowed so the external load balancer can serve the app. Direct external `run.app` requests are rejected. The global external Application Load Balancer uses `EXTERNAL_MANAGED`, Premium tier, HTTP port 80, reserved address `city-events-ip` (8.233.231.191), forwarding rule `city-events-http`, proxy `city-events-http-proxy`, URL map `city-events-map`, backend `city-events-backend`, and regional serverless NEG `city-events-neg` targeting Cloud Run. No domain, HTTPS certificate, Cloud Armor, or optional load test was added.
+
+Serverless NEGs do not use VM-style load-balancer health checks. `/health` is used by Cloud Run probes and by manual/public HTTP acceptance tests. Cloud Run reported Ready, and the LB health request returned `200 OK`.
+
+Deployment sequence: enable Run, Artifact Registry, Secret Manager, and Compute APIs; create the Docker repository; build/tag/push the image; create both secrets and the runtime identity; grant the two secret-specific roles; deploy the image with the settings above; create the serverless NEG, global backend, URL map, HTTP proxy, IP, and forwarding rule. Allow time for load-balancer propagation before diagnosing transient resets or 502 responses.
+
+## Cost controls and cleanup
+
+Maximum authorized out-of-pocket spending is **$0**. The account was verified as a Free Trial account with $300 and 90 days remaining on November 9, ending February 8, 2027. Do not upgrade to paid billing. A $10 monthly billing-account budget excludes credits and emails billing admins/users at $1, $5, and $10 of actual usage. This is an alert, not a hard cap or permission to spend out of pocket. Billing data is delayed.
+
+A reminder is set for November 20 in the morning. Automatic deletion is not configured. On that date, preserve required evidence, review the exact resources, and run:
+
+```bash
+bash ops/teardown.sh                 # preview only
+bash ops/teardown.sh --execute       # destructive cleanup of the named project resources
+bash ops/verify-removal.sh           # every named resource should be absent
+```
+
+The teardown script removes the forwarding rule, proxy, URL map, backend, NEG, reserved IP, Cloud Run service, Artifact Registry repository/images, secrets, and runtime service account. If a partial cleanup fails, inspect the actual inventory before resuming. Check the entire project for unexpected resources and delayed billing entries. Removal has not yet been verified because the agreed date is November 20.
+
+## Submission preparation
+
+Companion deliverables are the one-page architecture PDF, three-page technical report, and 4:45 Zoom demo outline. Review the AI-assisted reflection in your own words. The assignment expects two teammates and both speaking; confirm the instructor's accommodation for solo extra credit. Do not fabricate a second contributor, second reflection, or commits. The demo has not been recorded or submitted.
+
+## Sources and AI disclosure
+
+- Course assignment: `info520 - GCP Group Project (1).docx`, Promod Sreedharan, INFO 520.
 - https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/
 - https://docs.predicthq.com/api/events/search-events
-- https://www.predicthq.com/pricing
+- https://docs.predicthq.com/api/overview/attribution
+- PredictHQ signed-in trial settings, inspected November 9, 2026.
 - https://open-meteo.com/en/docs/geocoding-api
 - https://open-meteo.com/en/docs
 
-## AI disclosure
-
-OpenAI. (2026, November 9). City Events Finder implementation and setup assistance [Generative AI chat]. ChatGPT. AI assisted with initial application code, unit tests, and this README. These outputs require live API and deployment verification. The first test invocation failed because it ran outside the application directory; rerunning from the documented project directory passed all six tests. No human collaboration or live-cloud results have been invented.
-
-## Financial and trial constraints
-
-Out-of-pocket allowance: $0. GCP remains a Free Trial account with $300 verified remaining on November 9; do not upgrade to paid billing. A $10 monthly gross-usage alert budget emails billing admins/users at $1, $5, and $10; it is not a hard cap. Deadline and teardown date: November 20, 2026. A reminder exists, not automatic deletion. PredictHQ trial showed 14 days remaining on November 9, global access, maximum 50 records/page, required attribution, no commercial use or data storage. The app does not persist event payloads or cache responses.
+OpenAI. (2026, November 9). *City Events Finder implementation, deployment, testing, and documentation assistance* [Generative AI chat]. ChatGPT. AI assisted with code, tests, account/browser operations after user authorization, cloud deployment, troubleshooting, and documentation. Denzel personally completed signups, terms and verification, token creation, and the requested permission approvals. No partner contributions are claimed.
