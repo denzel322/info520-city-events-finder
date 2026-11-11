@@ -82,18 +82,3 @@ bash ops/verify-removal.sh           # every named resource should be absent
 
 The teardown script removes the forwarding rule, proxy, URL map, backend, NEG, reserved IP, Cloud Run service, Artifact Registry repository/images, secrets, and runtime service account. If a partial cleanup fails, inspect the actual inventory before resuming. Check the entire project for unexpected resources and delayed billing entries. Removal has not yet been verified because the agreed date is November 20.
 
-## Submission preparation
-
-Companion deliverables are the one-page architecture PDF, three-page technical report, and 4:45 Zoom demo outline. Review the AI-assisted reflection in your own words. The assignment expects two teammates and both speaking; confirm the instructor's accommodation for solo extra credit. Do not fabricate a second contributor, second reflection, or commits. The demo has not been recorded or submitted.
-
-## Sources and AI disclosure
-
-- Course assignment: `info520 - GCP Group Project (1).docx`, Promod Sreedharan, INFO 520.
-- https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/
-- https://docs.predicthq.com/api/events/search-events
-- https://docs.predicthq.com/api/overview/attribution
-- PredictHQ signed-in trial settings, inspected November 9, 2026.
-- https://open-meteo.com/en/docs/geocoding-api
-- https://open-meteo.com/en/docs
-
-OpenAI. (2026, November 9). *City Events Finder implementation, deployment, testing, and documentation assistance* [Generative AI chat]. ChatGPT. AI assisted with code, tests, account/browser operations after user authorization, cloud deployment, troubleshooting, and documentation. Denzel personally completed signups, terms and verification, token creation, and the requested permission approvals. No partner contributions are claimed.
